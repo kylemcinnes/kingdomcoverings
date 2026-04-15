@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kingdom Coverings Painting Inc. — Website
 
-## Getting Started
+Production-ready marketing site for **Kingdom Coverings Painting Inc.**, built with **Next.js 15 (App Router)**, **TypeScript**, **Tailwind CSS v4**, **shadcn/ui**, **Framer Motion**, **React Hook Form + Zod**, and **Server Actions** (email via **Resend**).
 
-First, run the development server:
+## Local development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` to `.env.local` and fill in values. At minimum, for email in production:
 
-## Learn More
+- `RESEND_API_KEY` — API key from [Resend](https://resend.com).
+- `RESEND_FROM_EMAIL` — A verified sender domain in Resend (required outside the Resend sandbox).
+- `CONTACT_INBOX_EMAIL` — Optional override; defaults to `kingdomcoveringspainting@gmail.com`.
 
-To learn more about Next.js, take a look at the following resources:
+Without `RESEND_API_KEY`, quote and newsletter submissions are logged on the server and still return success (useful for demos).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Set `NEXT_PUBLIC_SITE_URL` to your canonical domain in Vercel so Open Graph, `sitemap.xml`, and JSON-LD use the correct origin.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploy to Vercel
 
-## Deploy on Vercel
+1. Push this repository to GitHub and import the project in [Vercel](https://vercel.com).
+2. In **Project → Settings → Environment Variables**, add the variables from `.env.example` (at least `NEXT_PUBLIC_SITE_URL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`).
+3. Deploy. Vercel auto-detects Next.js; builds use `npm run build`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Custom domain
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Add your domain under **Settings → Domains**, then update `NEXT_PUBLIC_SITE_URL` to match the HTTPS URL.
+
+## Swapping in real photos and reviews
+
+- **Hero & portfolio:** Replace Unsplash URLs in `src/lib/content.ts` with your own assets under `public/` (e.g. `public/portfolio/kitchen-after.jpg`) and reference them with `src="/portfolio/..."` in `Image` components for best caching and control.
+- **Owner photo:** On the About page, change the `ownerPhoto` constant in `src/app/about/page.tsx` or move it into `content.ts`.
+- **Houzz / HomeStars / Google:** On the Reviews page, follow the inline comments in `src/components/reviews/review-embeds.tsx`. Paste Houzz’s official badge snippet from your Houzz Pro dashboard; replace map embed `src` on Contact with your Google Business **Place** embed; add `NEXT_PUBLIC_*` URLs as needed.
+- **Testimonials & schema:** Update `TESTIMONIALS` in `src/lib/content.ts` to match real, verifiable quotes. Then align `aggregateRating` / review counts in `src/components/seo/local-business-jsonld.tsx` with your live Google or Houzz aggregates so structured data matches what users see.
+
+## SEO notes
+
+- Page-level metadata uses the Next.js **Metadata API** (`export const metadata`).
+- **next-seo** is used for **JSON-LD** (`LocalBusinessJsonLd`, `JsonLdScript`) in `src/components/seo/local-business-jsonld.tsx` and `src/components/reviews/review-embeds.tsx`.
+- `src/app/sitemap.ts` and `src/app/robots.ts` handle sitemap and robots rules (`/thank-you` is disallowed for indexing).
+
+## Performance & hero “video”
+
+The hero uses a **single optimized full-viewport image** (with `priority` and responsive `sizes`) for predictable **Lighthouse** performance. If you add a background video later, host a short, compressed **muted** MP4, set `playsInline`, provide the same image as `poster`, and respect `prefers-reduced-motion` by hiding autoplay video for those users.
+
+## Licence
+
+© Kingdom Coverings Painting Inc. All rights reserved. Code is provided for the business’s use; adjust licence as needed for your organisation.
