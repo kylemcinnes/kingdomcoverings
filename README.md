@@ -11,6 +11,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+To run ESLint: `npx eslint .` (no `npm run lint` script; Cloudflare-focused scripts own the `package.json` scripts block).
+
 ## Environment variables
 
 Copy `.env.example` to `.env.local` and fill in values. At minimum, for email in production:
@@ -21,7 +23,30 @@ Copy `.env.example` to `.env.local` and fill in values. At minimum, for email in
 
 Without `RESEND_API_KEY`, quote and newsletter submissions are logged on the server and still return success (useful for demos).
 
-Set `NEXT_PUBLIC_SITE_URL` to your canonical domain in Vercel so Open Graph, `sitemap.xml`, and JSON-LD use the correct origin.
+Set `NEXT_PUBLIC_SITE_URL` to your canonical HTTPS origin so Open Graph, `sitemap.xml`, and JSON-LD resolve correctly (used by both Vercel and Cloudflare).
+
+## Cloudflare Workers deployment
+
+This app targets **Cloudflare Workers** via [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare) so **Server Actions**, **Route Handlers**, and **Resend** behave like a standard Node-style Next deployment, with `nodejs_compat` enabled in Wrangler.
+
+1. **Install dependencies:** `npm install`
+2. **Secrets and vars in Cloudflare:** In **Workers & Pages → your project → Settings → Variables**, add:
+   - `RESEND_API_KEY` — as an **encrypted Secret** (not plain text).
+   - `RESEND_FROM_EMAIL`, `CONTACT_INBOX_EMAIL`, `NEXT_PUBLIC_SITE_URL`, and any `NEXT_PUBLIC_*` values from `.env.example` as appropriate (public vars can be plain text).
+3. **Git-connected build (recommended):** Connect this GitHub repo in Cloudflare and configure:
+   - **Build command:** `npm run build`
+   - **Deploy command:** `npm run deploy`  
+     (Replaces the default `npx wrangler deploy` so the OpenNext bundle in `.open-next/` is produced first.)
+   - For **non-production** branches / preview pipelines, use **Deploy command:** `npm run upload` if you prefer upload-only flows.
+4. **Push `main`:** Each push runs the configured build, then `npm run deploy`, which runs `opennextjs-cloudflare build && opennextjs-cloudflare deploy`.
+
+**Local parity**
+
+- `npm run build` — standard Next.js production build.
+- `npm run preview` — OpenNext adapter build + Wrangler preview (production-like).
+- `npm run cf-typegen` — regenerates `cloudflare-env.d.ts` after you add Wrangler bindings.
+
+**Config files:** `wrangler.jsonc` (worker entry `.open-next/worker.js`, `nodejs_compat`), `open-next.config.ts` (uses `defineCloudflareConfig()` — the shape OpenNext validates for Cloudflare). `next.config.ts` sets `output: "standalone"` for tracing compatibility.
 
 ## Deploy to Vercel
 
