@@ -16,10 +16,10 @@ To run ESLint: `npx eslint .`
 ### Production parity (Cloudflare Pages)
 
 ```bash
-npm run pages:build
+npm run build
 ```
 
-**Important:** `npm run build` must stay as **`next build` only**. The `@cloudflare/next-on-pages` CLI runs `vercel build` internally, which invokes `npm run build` again—if `build` chained `next-on-pages`, you get a **recursive build error**. Use **`npm run pages:build`** (or `npx @cloudflare/next-on-pages`) for the adapter step that writes `.vercel/output/static`.
+The default **`npm run build`** runs **`@cloudflare/next-on-pages`**, which calls **`vercel build`** → **`next build`** (via **`vercel.json`** `buildCommand`, **not** `npm run build`) → then emits **`.vercel/output/static`**. This avoids the **recursive Vercel build** you get if `package.json`’s `build` script chains `next build && next-on-pages` without a separate `buildCommand`.
 
 ## Environment variables
 
@@ -47,10 +47,10 @@ This project uses [`@cloudflare/next-on-pages`](https://developers.cloudflare.co
    - `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `CONTACT_INBOX_EMAIL`, and optional `NEXT_PUBLIC_*` keys from `.env.example`.
 4. **Compatibility:** ensure **`nodejs_compat`** is enabled for the project. The committed `wrangler.toml` includes `compatibility_flags = ["nodejs_compat"]`; Pages picks this up when using Wrangler integration. If the UI offers a **Compatibility flags** field, add `nodejs_compat` there too.
 5. **Build configuration**
-   - **Build command:** `npm run pages:build`  
-     (Runs `@cloudflare/next-on-pages`, which internally runs `vercel build` → `npm run build` → `next build`, then emits the Pages bundle. **Do not** chain `next-on-pages` into the `build` script or builds recurse and fail.)
+   - **Build command:** `npm run build`  
+     (Cloudflare’s default. Runs `next-on-pages` once; Next compiles inside `vercel build` using **`vercel.json`** → `"buildCommand": "next build"`.)
    - **Build output directory:** `.vercel/output/static`  
-     (Set in the Pages UI **and** in `wrangler.toml` as `pages_build_output_dir` so Wrangler validation passes.)
+     (Declared in **`wrangler.toml`** as `pages_build_output_dir` and in the Pages UI.)
 6. **Save and deploy.** Every push to `main` triggers a new build and deploy.
 
 **`npm install` on Cloudflare:** the repo includes [`.npmrc`](.npmrc) with `legacy-peer-deps=true` because `@cloudflare/next-on-pages@1.13.x` declares a **narrow peer range** on `next` while this app tracks the latest **15.5.x** security patches. The adapter still completes the build successfully (validated locally).
@@ -65,7 +65,7 @@ This project uses [`@cloudflare/next-on-pages`](https://developers.cloudflare.co
 
 1. Import the repo in [Vercel](https://vercel.com).
 2. Set the same environment variables as above.
-3. Build command: `npm run build` (no `next-on-pages` step required on Vercel).
+3. **Build command:** `npm run build:vercel` (plain **`next build`**). Do **not** use `npm run build` on Vercel—that script is for **Cloudflare Pages** (`next-on-pages`).
 
 ### Custom domain
 

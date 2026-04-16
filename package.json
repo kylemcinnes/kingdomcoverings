@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "pages:build": "npx @cloudflare/next-on-pages",
-    "preview": "npm run pages:build",
-    "deploy": "npm run pages:build"
+    "build": "npx @cloudflare/next-on-pages",
+    "build:vercel": "next build",
+    "pages:build": "npm run build",
+    "preview": "npm run build",
+    "deploy": "npm run build"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",
