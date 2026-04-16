@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "preview": "npm run build && npx @cloudflare/next-on-pages",
-    "deploy": "npm run build && npx @cloudflare/next-on-pages"
+    "pages:build": "npx @cloudflare/next-on-pages",
+    "preview": "npm run pages:build",
+    "deploy": "npm run pages:build"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

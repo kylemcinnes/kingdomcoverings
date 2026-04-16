@@ -1,3 +1,6 @@
 name = "kingdomcoverings"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Required for Cloudflare Pages: tells the dashboard where static assets + _worker live after next-on-pages.
+pages_build_output_dir = ".vercel/output/static"

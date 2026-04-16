@@ -16,11 +16,10 @@ To run ESLint: `npx eslint .`
 ### Production parity (Cloudflare Pages)
 
 ```bash
-npm run build
-npx @cloudflare/next-on-pages
+npm run pages:build
 ```
 
-Or in one step: `npm run deploy` (same as `preview`).
+**Important:** `npm run build` must stay as **`next build` only**. The `@cloudflare/next-on-pages` CLI runs `vercel build` internally, which invokes `npm run build` again—if `build` chained `next-on-pages`, you get a **recursive build error**. Use **`npm run pages:build`** (or `npx @cloudflare/next-on-pages`) for the adapter step that writes `.vercel/output/static`.
 
 ## Environment variables
 
@@ -48,10 +47,10 @@ This project uses [`@cloudflare/next-on-pages`](https://developers.cloudflare.co
    - `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `CONTACT_INBOX_EMAIL`, and optional `NEXT_PUBLIC_*` keys from `.env.example`.
 4. **Compatibility:** ensure **`nodejs_compat`** is enabled for the project. The committed `wrangler.toml` includes `compatibility_flags = ["nodejs_compat"]`; Pages picks this up when using Wrangler integration. If the UI offers a **Compatibility flags** field, add `nodejs_compat` there too.
 5. **Build configuration**
-   - **Build command:** `npm run deploy`  
-     (This runs `next build` **and** `@cloudflare/next-on-pages`, which is required—`next build` alone does **not** emit the Pages worker bundle.)
+   - **Build command:** `npm run pages:build`  
+     (Runs `@cloudflare/next-on-pages`, which internally runs `vercel build` → `npm run build` → `next build`, then emits the Pages bundle. **Do not** chain `next-on-pages` into the `build` script or builds recurse and fail.)
    - **Build output directory:** `.vercel/output/static`  
-     (This is where the adapter writes static assets and the worker entry under `_worker.js`.)
+     (Set in the Pages UI **and** in `wrangler.toml` as `pages_build_output_dir` so Wrangler validation passes.)
 6. **Save and deploy.** Every push to `main` triggers a new build and deploy.
 
 **`npm install` on Cloudflare:** the repo includes [`.npmrc`](.npmrc) with `legacy-peer-deps=true` because `@cloudflare/next-on-pages@1.13.x` declares a **narrow peer range** on `next` while this app tracks the latest **15.5.x** security patches. The adapter still completes the build successfully (validated locally).
