@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans, Geist_Mono } from "next/font/google";
+
+/** Cloudflare Pages Functions + Server Actions (edge workerd with nodejs_compat). */
+export const runtime = "edge";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/site-shell";
 import { LocalBusinessJsonLdBlock } from "@/components/seo/local-business-jsonld";

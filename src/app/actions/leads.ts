@@ -1,6 +1,5 @@
 "use server";
 
-import { Resend } from "resend";
 import { z } from "zod";
 import { COMPANY } from "@/lib/constants";
 import {
@@ -8,20 +7,22 @@ import {
   newsletterSchema,
   quoteSchema,
 } from "@/lib/schemas";
+import { sendResendEmail } from "@/lib/resend-send";
 import { getSiteUrl } from "@/lib/site";
 
 export type ActionResult =
   | { ok: true; message: string }
   | { ok: false; message: string; fieldErrors?: Record<string, string[]> };
 
-function getResend() {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) return null;
-  return new Resend(key);
-}
-
 function toFieldErrors(error: z.ZodError): Record<string, string[]> {
   return error.flatten().fieldErrors as Record<string, string[]>;
+}
+
+function fromEmail() {
+  return (
+    process.env.RESEND_FROM_EMAIL ??
+    "Kingdom Coverings <onboarding@resend.dev>"
+  );
 }
 
 export async function submitQuote(
@@ -36,7 +37,6 @@ export async function submitQuote(
     };
   }
   const data = parsed.data;
-  const resend = getResend();
   const to = process.env.CONTACT_INBOX_EMAIL ?? COMPANY.email;
   const subject = `New quote request — ${data.name}`;
   const lines = [
@@ -58,7 +58,7 @@ export async function submitQuote(
     `Submitted from: ${getSiteUrl()}/contact`,
   ].join("\n");
 
-  if (!resend) {
+  if (!process.env.RESEND_API_KEY) {
     console.warn("[leads] RESEND_API_KEY missing — quote logged only.");
     console.info(lines);
     return {
@@ -68,18 +68,16 @@ export async function submitQuote(
     };
   }
 
-  const { error } = await resend.emails.send({
-    from:
-      process.env.RESEND_FROM_EMAIL ??
-      "Kingdom Coverings <onboarding@resend.dev>",
+  const sent = await sendResendEmail({
+    from: fromEmail(),
     to: [to],
-    replyTo: data.email,
     subject,
     text: lines,
+    replyTo: data.email,
   });
 
-  if (error) {
-    console.error(error);
+  if (!sent.ok) {
+    console.error("[leads] Resend API error", sent.status, sent.body);
     return {
       ok: false,
       message: "We could not send your message right now. Please call us.",
@@ -103,23 +101,20 @@ export async function submitNewsletter(
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
-  const resend = getResend();
   const to = process.env.CONTACT_INBOX_EMAIL ?? COMPANY.email;
   const body = `Newsletter signup: ${parsed.data.email}\nFrom: ${getSiteUrl()}`;
-  if (!resend) {
+  if (!process.env.RESEND_API_KEY) {
     console.info(body);
     return { ok: true, message: "You're on the list!" };
   }
-  const { error } = await resend.emails.send({
-    from:
-      process.env.RESEND_FROM_EMAIL ??
-      "Kingdom Coverings <onboarding@resend.dev>",
+  const sent = await sendResendEmail({
+    from: fromEmail(),
     to: [to],
     subject: "Newsletter signup",
     text: body,
   });
-  if (error) {
-    console.error(error);
+  if (!sent.ok) {
+    console.error("[leads] Resend API error", sent.status, sent.body);
     return { ok: false, message: "Signup failed. Please try again later." };
   }
   return { ok: true, message: "You're on the list!" };
@@ -136,7 +131,6 @@ export async function submitExitLead(
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
-  const resend = getResend();
   const to = process.env.CONTACT_INBOX_EMAIL ?? COMPANY.email;
   const lines = [
     "Exit-intent / promo lead",
@@ -146,21 +140,19 @@ export async function submitExitLead(
     "",
     `Source: ${getSiteUrl()}`,
   ].join("\n");
-  if (!resend) {
+  if (!process.env.RESEND_API_KEY) {
     console.info(lines);
     return { ok: true, message: "Offer sent to your inbox (check spam)." };
   }
-  const { error } = await resend.emails.send({
-    from:
-      process.env.RESEND_FROM_EMAIL ??
-      "Kingdom Coverings <onboarding@resend.dev>",
+  const sent = await sendResendEmail({
+    from: fromEmail(),
     to: [to],
-    replyTo: parsed.data.email,
     subject: "Promo lead — Instant Quote + 10% first project",
     text: lines,
+    replyTo: parsed.data.email,
   });
-  if (error) {
-    console.error(error);
+  if (!sent.ok) {
+    console.error("[leads] Resend API error", sent.status, sent.body);
     return { ok: false, message: "Something went wrong. Please call us." };
   }
   return { ok: true, message: "You're in — we'll send your quote shortly." };

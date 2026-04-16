@@ -1,6 +1,6 @@
 # Kingdom Coverings Painting Inc. — Website
 
-Production-ready marketing site for **Kingdom Coverings Painting Inc.**, built with **Next.js 15 (App Router)**, **TypeScript**, **Tailwind CSS v4**, **shadcn/ui**, **Framer Motion**, **React Hook Form + Zod**, and **Server Actions** (email via **Resend**).
+Production-ready marketing site for **Kingdom Coverings Painting Inc.**, built with **Next.js 15 (App Router)**, **TypeScript**, **Tailwind CSS v4**, **shadcn/ui**, **Framer Motion**, **React Hook Form + Zod**, and **Server Actions** with **Resend** (HTTP API, Edge-friendly on Cloudflare Pages).
 
 ## Local development
 
@@ -11,70 +11,84 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-To run ESLint: `npx eslint .` (no `npm run lint` script; Cloudflare-focused scripts own the `package.json` scripts block).
+To run ESLint: `npx eslint .`
+
+### Production parity (Cloudflare Pages)
+
+```bash
+npm run build
+npx @cloudflare/next-on-pages
+```
+
+Or in one step: `npm run deploy` (same as `preview`).
 
 ## Environment variables
 
-Copy `.env.example` to `.env.local` and fill in values. At minimum, for email in production:
+Copy `.env.example` to `.env.local` and fill in values.
 
-- `RESEND_API_KEY` — API key from [Resend](https://resend.com).
-- `RESEND_FROM_EMAIL` — A verified sender domain in Resend (required outside the Resend sandbox).
-- `CONTACT_INBOX_EMAIL` — Optional override; defaults to `kingdomcoveringspainting@gmail.com`.
+- `RESEND_API_KEY` — from [Resend](https://resend.com). On **Cloudflare Pages**, add under **Settings → Environment variables** for **Production** (and Preview if needed). Mark as **encrypted** where offered.
+- `RESEND_FROM_EMAIL` — verified sender in Resend.
+- `CONTACT_INBOX_EMAIL` — optional; defaults to `kingdomcoveringspainting@gmail.com`.
+- `NEXT_PUBLIC_SITE_URL` — canonical `https://…` origin for Open Graph, `sitemap.xml`, and JSON-LD. On Pages, also set **`CF_PAGES`** / preview URLs are handled automatically via `CF_PAGES_URL` when present.
 
-Without `RESEND_API_KEY`, quote and newsletter submissions are logged on the server and still return success (useful for demos).
+Without `RESEND_API_KEY`, lead handlers log payloads and still return success (useful for demos).
 
-Set `NEXT_PUBLIC_SITE_URL` to your canonical HTTPS origin so Open Graph, `sitemap.xml`, and JSON-LD resolve correctly (used by both Vercel and Cloudflare).
+## Cloudflare Pages deployment
 
-## Cloudflare Workers deployment
+This project uses [`@cloudflare/next-on-pages`](https://developers.cloudflare.com/pages/framework-guides/nextjs/ssr/) so you get the familiar **GitHub → Cloudflare Pages** automatic builds. Root `wrangler.toml` sets **`nodejs_compat`** for Pages Functions (helps with Node APIs used by parts of the Next.js runtime).
 
-This app targets **Cloudflare Workers** via [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare) so **Server Actions**, **Route Handlers**, and **Resend** behave like a standard Node-style Next deployment, with `nodejs_compat` enabled in Wrangler.
+> **Note:** npm shows `@cloudflare/next-on-pages` as deprecated in favour of the **OpenNext** Cloudflare adapter. This repo follows the **Pages + next-on-pages** workflow you asked for; you can migrate later if you move to Workers-only OpenNext.
 
-1. **Install dependencies:** `npm install`
-2. **Secrets and vars in Cloudflare:** In **Workers & Pages → your project → Settings → Variables**, add:
-   - `RESEND_API_KEY` — as an **encrypted Secret** (not plain text).
-   - `RESEND_FROM_EMAIL`, `CONTACT_INBOX_EMAIL`, `NEXT_PUBLIC_SITE_URL`, and any `NEXT_PUBLIC_*` values from `.env.example` as appropriate (public vars can be plain text).
-3. **Git-connected build (recommended):** Connect this GitHub repo in Cloudflare and configure:
-   - **Build command:** `npm run build`
-   - **Deploy command:** `npm run deploy`  
-     (Replaces the default `npx wrangler deploy` so the OpenNext bundle in `.open-next/` is produced first.)
-   - For **non-production** branches / preview pipelines, use **Deploy command:** `npm run upload` if you prefer upload-only flows.
-4. **Push `main`:** Each push runs the configured build, then `npm run deploy`, which runs `opennextjs-cloudflare build && opennextjs-cloudflare deploy`.
+### Step-by-step (dashboard)
 
-**Local parity**
+1. **Connect GitHub** in Cloudflare **Workers & Pages → Create → Pages → Connect to Git**.
+2. Select the **kingdomcoverings** repo and the **`main`** branch.
+3. **Environment variables** (Pages → **Settings → Environment variables**):
+   - `NEXT_PUBLIC_SITE_URL` = your live site URL (e.g. `https://www.kingdomcoverings.ca`).
+   - `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `CONTACT_INBOX_EMAIL`, and optional `NEXT_PUBLIC_*` keys from `.env.example`.
+4. **Compatibility:** ensure **`nodejs_compat`** is enabled for the project. The committed `wrangler.toml` includes `compatibility_flags = ["nodejs_compat"]`; Pages picks this up when using Wrangler integration. If the UI offers a **Compatibility flags** field, add `nodejs_compat` there too.
+5. **Build configuration**
+   - **Build command:** `npm run deploy`  
+     (This runs `next build` **and** `@cloudflare/next-on-pages`, which is required—`next build` alone does **not** emit the Pages worker bundle.)
+   - **Build output directory:** `.vercel/output/static`  
+     (This is where the adapter writes static assets and the worker entry under `_worker.js`.)
+6. **Save and deploy.** Every push to `main` triggers a new build and deploy.
 
-- `npm run build` — standard Next.js production build.
-- `npm run preview` — OpenNext adapter build + Wrangler preview (production-like).
-- `npm run cf-typegen` — regenerates `cloudflare-env.d.ts` after you add Wrangler bindings.
+**`npm install` on Cloudflare:** the repo includes [`.npmrc`](.npmrc) with `legacy-peer-deps=true` because `@cloudflare/next-on-pages@1.13.x` declares a **narrow peer range** on `next` while this app tracks the latest **15.5.x** security patches. The adapter still completes the build successfully (validated locally).
 
-**Config files:** `wrangler.jsonc` (worker entry `.open-next/worker.js`, `nodejs_compat`), `open-next.config.ts` (uses `defineCloudflareConfig()` — the shape OpenNext validates for Cloudflare). `next.config.ts` sets `output: "standalone"` for tracing compatibility.
+### Server Actions, Edge, and Resend
 
-## Deploy to Vercel
+- `src/app/layout.tsx` sets `export const runtime = "edge"` so Server Actions and RSC run on **Edge** Pages Functions where appropriate.
+- Email uses **`fetch` to Resend’s REST API** (`src/lib/resend-send.ts`), not the Node-oriented `resend` npm client—so delivery works in the **Edge** runtime with **`nodejs_compat`** as a safety net for other Next internals.
+- **Limitation:** `@cloudflare/next-on-pages` lags official Next peer versions; watch for Cloudflare/OpenNext migration guides if you need bleeding-edge Next features.
 
-1. Push this repository to GitHub and import the project in [Vercel](https://vercel.com).
-2. In **Project → Settings → Environment Variables**, add the variables from `.env.example` (at least `NEXT_PUBLIC_SITE_URL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`).
-3. Deploy. Vercel auto-detects Next.js; builds use `npm run build`.
+## Deploy to Vercel (optional)
+
+1. Import the repo in [Vercel](https://vercel.com).
+2. Set the same environment variables as above.
+3. Build command: `npm run build` (no `next-on-pages` step required on Vercel).
 
 ### Custom domain
 
-Add your domain under **Settings → Domains**, then update `NEXT_PUBLIC_SITE_URL` to match the HTTPS URL.
+Point DNS at Cloudflare (or Vercel) and keep `NEXT_PUBLIC_SITE_URL` aligned with the HTTPS URL you serve.
 
 ## Swapping in real photos and reviews
 
-- **Hero & portfolio:** Replace Unsplash URLs in `src/lib/content.ts` with your own assets under `public/` (e.g. `public/portfolio/kitchen-after.jpg`) and reference them with `src="/portfolio/..."` in `Image` components for best caching and control.
-- **Owner photo:** On the About page, change the `ownerPhoto` constant in `src/app/about/page.tsx` or move it into `content.ts`.
-- **Houzz / HomeStars / Google:** On the Reviews page, follow the inline comments in `src/components/reviews/review-embeds.tsx`. Paste Houzz’s official badge snippet from your Houzz Pro dashboard; replace map embed `src` on Contact with your Google Business **Place** embed; add `NEXT_PUBLIC_*` URLs as needed.
-- **Testimonials & schema:** Update `TESTIMONIALS` in `src/lib/content.ts` to match real, verifiable quotes. Then align `aggregateRating` / review counts in `src/components/seo/local-business-jsonld.tsx` with your live Google or Houzz aggregates so structured data matches what users see.
+- **Hero & portfolio:** Replace Unsplash URLs in `src/lib/content.ts` with assets under `public/` and reference them as `/…` paths in `next/image` where possible.
+- **Owner photo:** `src/app/about/page.tsx` (`ownerPhoto`).
+- **Houzz / HomeStars / Google:** `src/components/reviews/review-embeds.tsx` and env URLs in `.env.example`.
+- **Testimonials & schema:** `src/lib/content.ts` + `src/components/seo/local-business-jsonld.tsx`.
 
 ## SEO notes
 
-- Page-level metadata uses the Next.js **Metadata API** (`export const metadata`).
-- **next-seo** is used for **JSON-LD** (`LocalBusinessJsonLd`, `JsonLdScript`) in `src/components/seo/local-business-jsonld.tsx` and `src/components/reviews/review-embeds.tsx`.
-- `src/app/sitemap.ts` and `src/app/robots.ts` handle sitemap and robots rules (`/thank-you` is disallowed for indexing).
+- **Metadata API** (`export const metadata`) for titles, Open Graph, etc.
+- **next-seo** for JSON-LD (`LocalBusinessJsonLd`, `JsonLdScript`).
+- `src/app/sitemap.ts` and `src/app/robots.ts` (`/thank-you` not indexed).
 
 ## Performance & hero “video”
 
-The hero uses a **single optimized full-viewport image** (with `priority` and responsive `sizes`) for predictable **Lighthouse** performance. If you add a background video later, host a short, compressed **muted** MP4, set `playsInline`, provide the same image as `poster`, and respect `prefers-reduced-motion` by hiding autoplay video for those users.
+The hero uses a single optimized **full-viewport** `next/image` for predictable Lighthouse scores. Optional background video: short muted MP4, `poster` image, respect `prefers-reduced-motion`.
 
 ## Licence
 
-© Kingdom Coverings Painting Inc. All rights reserved. Code is provided for the business’s use; adjust licence as needed for your organisation.
+© Kingdom Coverings Painting Inc. All rights reserved.
